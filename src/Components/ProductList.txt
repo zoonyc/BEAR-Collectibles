@@ -1,0 +1,237 @@
+
+import { useState, useEffect } from "react";
+import Loading from "./Loading"; 
+import Breadcrumb from "./Common/Breadcrumb";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import SearchBar from "./Common/SearchBar";
+
+const ProductList = () => {
+  const [productos, setColeccionables] = useState([]);
+  const [productosFiltrados, setColeccionablesFiltrados] = useState([]);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(8);  
+  const location = useLocation();
+  const navigate = useNavigate(); // 🔹 Cambiar a useNavigate
+
+  // Obtener parámetro de búsqueda de la URL
+  const searchParams = new URLSearchParams(location.search);
+  const searchQuery = searchParams.get('search') || '';
+
+  useEffect(() => {
+    const fetchColeccionables = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const res = await fetch("https://api-ten-jet.vercel.app/products");
+        
+        if (!res.ok) {
+          throw new Error(`Error ${res.status}: ${res.statusText}`);
+        }
+        
+        const data = await res.json();
+        setColeccionables(data);
+        setColeccionablesFiltrados(data);
+      } catch (err) {
+        setError(err.message || "Error al cargar los productos");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchColeccionables();
+  }, []);
+
+  // 🔹 Efecto para filtrar productos cuando cambia la búsqueda
+  useEffect(() => {
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase().trim();
+      const filtrados = productos.filter(producto =>
+        producto.nombre.toLowerCase().includes(query) ||
+        producto.descripcion?.toLowerCase().includes(query) ||
+        producto.categoria?.toLowerCase().includes(query) ||
+        producto.tipo?.toLowerCase().includes(query)
+      );
+      setColeccionablesFiltrados(filtrados);
+      setVisibleCount(8);
+    } else {
+      setColeccionablesFiltrados(productos);
+    }
+  }, [searchQuery, productos]);
+
+  // 🔹 Función para cargar más productos
+  const handleVerMas = () => {
+    setVisibleCount((prev) => prev + 8);  
+  };
+
+  // 🔹 Función para limpiar búsqueda (usando navigate)
+  const limpiarBusqueda = () => {
+    navigate('/Articulos_de_coleccion');
+    setVisibleCount(8);
+  };
+
+  return (
+    <section className="min-h-screen bg-gray-50 pt-24 pb-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Breadcrumb */}
+        <div className="mb-8">
+          <Breadcrumb />
+        </div>
+
+        {/* 🔹 SEARCH BAR - COLOCADO AQUÍ */}
+        <div className="mb-8">
+          <SearchBar initialValue={searchQuery} />
+        </div>
+
+        {/* Título y información de búsqueda */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+          <h2 className="text-3xl font-bold text-gray-900">
+            {searchQuery ? `Resultados de búsqueda` : `Nuestros Coleccionables`}
+          </h2>
+          
+          {searchQuery && (
+            <div className="flex items-center gap-3 bg-red-50 px-4 py-2 rounded-lg">
+              <span className="text-red-700 font-medium">
+                Búsqueda: "{searchQuery}"
+              </span>
+              <button 
+                onClick={limpiarBusqueda}
+                className="text-red-600 hover:text-red-800 font-semibold text-sm"
+              >
+                ✕ Limpiar
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Contador de resultados */}
+        {searchQuery && (
+          <div className="mb-6">
+            <p className="text-gray-600">
+              {productosFiltrados.length === 0 
+                ? "No se encontraron productos" 
+                : `Se encontraron ${productosFiltrados.length} producto${productosFiltrados.length !== 1 ? 's' : ''}`
+              }
+            </p>
+          </div>
+        )}
+
+        {/* Mensaje de error */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg mb-6">
+            <div className="flex items-center">
+              <span className="text-red-500 mr-3 text-xl">⚠️</span>
+              <div>
+                <p className="font-semibold">Error al cargar productos</p>
+                <p className="text-sm mt-1">{error}</p>
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="mt-2 text-sm bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded"
+                >
+                  Reintentar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Loading */}
+        {loading ? (
+          <div className="flex justify-center items-center py-20">
+            <Loading />
+          </div>
+        ) : (
+          <>
+            {/* Grid de productos */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+              {productosFiltrados.slice(0, visibleCount).map((p) => (
+                <div 
+                  key={p.id} 
+                  className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group"
+                >
+                  {/* Imagen del producto */}
+                  <div className="relative overflow-hidden">
+                    <img 
+                      src={p.image} 
+                      alt={p.nombre} 
+                      className="w-full h-48 sm:h-56 object-cover transition-transform duration-300 group-hover:scale-105"
+                      onError={(e) => {
+                        e.target.src = 'https://via.placeholder.com/300x300/2563eb/ffffff?text=Imagen+No+Disponible';
+                      }}
+                    />
+                  </div>
+
+                  {/* Contenido */}
+                  <div className="p-4 sm:p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2 min-h-[3rem]">
+                      {p.nombre}
+                    </h3>
+
+                    {/* Mostrar categoría si hay búsqueda */}
+                    {searchQuery && p.categoria && (
+                      <span className="inline-block bg-gray-100 text-gray-600 text-xs font-medium px-2 py-1 rounded mb-2">
+                        {p.categoria}
+                      </span>
+                    )}
+
+                    <p className="text-2xl font-bold text-red-600 mb-4">
+                      ${typeof p.precio === 'number' ? p.precio.toFixed(2) : p.precio}
+                    </p>
+
+                    <Link
+                      to={`/producto/${p.id}`}
+                      className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 text-center block"
+                    >
+                      Ver detalles
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Mensaje cuando no hay resultados */}
+            {!loading && productosFiltrados.length === 0 && !error && (
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">🔍</div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  No se encontraron productos
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  No hay resultados para "<strong>{searchQuery}</strong>". Intenta con otros términos.
+                </p>
+                <button 
+                  onClick={limpiarBusqueda}
+                  className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-6 rounded-lg transition duration-300"
+                >
+                  Ver todos los productos
+                </button>
+              </div>
+            )}
+
+            {/* Botón Ver más */}
+            {!searchQuery && visibleCount < productosFiltrados.length && (
+              <div className="flex justify-center mt-10">
+                <button 
+                  onClick={handleVerMas}
+                  className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold shadow-md transition-all duration-200"
+                >
+                  Ver más productos ({productosFiltrados.length - visibleCount} restantes)
+                </button>
+              </div>
+            )}
+
+            {/* Mensaje cuando se muestran todos los resultados de búsqueda */}
+            {searchQuery && visibleCount >= productosFiltrados.length && productosFiltrados.length > 0 && (
+              <div className="text-center mt-6 text-gray-500">
+                <p>Se muestran todos los resultados de la búsqueda</p>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </section>
+  );
+};
+
+export default ProductList;
